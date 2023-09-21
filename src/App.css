@@ -105,6 +105,9 @@
     border-radius: 5px;
     cursor: pointer;
 }
+.uploadIcon {
+    cursor: pointer;
+}
 
 .FileDetailsContainer {
     display: flex;

@@ -2,12 +2,14 @@ import React, { useRef, useState, useEffect } from 'react';
 import './App.css';
 import { AiOutlinePlus, AiOutlineDelete, AiOutlineClose } from 'react-icons/ai';
 import { FaCloudUploadAlt } from 'react-icons/fa';
+import { Link } from 'react-router-dom';
 import axios from 'axios';
 
-const FileDetails = ({ fileName, onDelete }) => {
+const FileDetails = ({ fileName, onDelete, handleDownload }) => {
   const deleteFile = () => {
-    onDelete(fileName)
-  }
+    onDelete(fileName);
+  };
+
   return (
     <div className='FileDetailsContainer'>
       <h4>{fileName}</h4>
@@ -19,19 +21,21 @@ const FileDetails = ({ fileName, onDelete }) => {
           <option>doc</option>
         </select>
       </div>
+      <button className='downloadBtn' onClick={handleDownload}>
+        Download
+      </button>
       <button className='delBtns' onClick={deleteFile}>
         <AiOutlineClose />
       </button>
     </div>
   );
 };
-
 function App() {
   const hiddenInput = useRef(null);
   const [isFileUploaded, setFileUploaded] = useState(false);
   const [isDragActive, setDragActive] = useState(false);
   const [files, setFiles] = useState([]);
-
+  const [downloadLinks, setDownloadLinks] = useState({});
 
   const handleDrag = (e) => {
     e.preventDefault();
@@ -43,32 +47,64 @@ function App() {
     }
   };
 
-  const getFromAxios = () => {
-    axios.get('http://localhost:5000')
-    .then((res) => {
-      console.log(res)
-    }).catch((err) => {
-      console.log(err)
-    })
-  }
+  const fetchDownloadLinks = () => {
+    console.log('Fetching download links...');
+    axios
+      .get('http://localhost:5000/downloadLinks')
+      .then((res) => {
+        setDownloadLinks(res.data)
+        console.log(res.data);
+      })
+      .catch(err => {
+        console.log('Error fetching file locations',err);
+      })
+  };
+  
+  const handleDownloadFile = (index) => {
+    if (downloadLinks.file_info && downloadLinks.file_info.length > index) {
+      const fileInfo = downloadLinks.file_info[index];
+      const filename = fileInfo.filename;
+      const location = fileInfo.location;
+  
+      console.log("Filename:", filename);
+      console.log("Location:", location);
+  
+      // Create a temporary anchor element
+      const anchor = document.createElement('a');
+      anchor.href = location; // Set the URL of the file
+      anchor.download = filename; // Set the filename for download
+  
+      anchor.style.display = 'none';
+      document.body.appendChild(anchor);
+  
+      anchor.click();
+      
+      // Clean up
+      document.body.removeChild(anchor);
+    } else {
+      console.log("File information not found for the specified index.");
+      // Handle error, e.g., display a message to the user
+    }
+  };
 
   const postToPython = () => {
     const formData = new FormData();
   
     for (let i = 0; i < files.length; i++) {
-      formData.append('file', files[i]);
+      formData.append('files', files[i]);
     }
   
-    axios.post('http://localhost:5000/greeting', formData)
+    axios
+      .post('http://localhost:5000/uploadFile', formData)
       .then((res) => {
+        console.log(files);
         console.log(res);
+        fetchDownloadLinks();
       })
       .catch((err) => {
-        console.log("error", err);
+        console.log('error', err);
       });
   };
-  
-  
 
   const handleDrop = (e) => {
     e.preventDefault();
@@ -132,6 +168,7 @@ function App() {
             ref={hiddenInput}
             style={{ display: 'none' }}
             onChange={handleFileInputChange}
+            multiple
           />
           <button className='delBtn' onClick={handleDelete}>
             <AiOutlineDelete size={20} />
@@ -149,7 +186,12 @@ function App() {
         {isFileUploaded ? (
           <div className='uploadedFilesContainer'>
             {files.map((file, index) => (
-              <FileDetails key={file.name} fileName={file.name} onDelete={() => handleDeleteFile(file.name)} />
+              <FileDetails
+                key={file.name}
+                fileName={file.name}
+                onDelete={() => handleDeleteFile(file.name)}
+                handleDownload={() => handleDownloadFile(index)}
+              />
             ))}
             <button className='convertBtn' onClick={postToPython}>Convert</button>
           </div>
